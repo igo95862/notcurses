@@ -271,19 +271,26 @@ ncreel_draw_tablet(const ncreel* nr, nctablet* t, int frontiertop,
 //fprintf(stderr, "no room: %p base %d/%d len %d/%d dir %d\n", t, begy, begx, leny, lenx, direction);
     return -1;
   }
+  // first, we create the border plane. this always occupies the full space
+  // available to the tablet, and sits underneath the content plane. the content
+  // plane is kept from obliterating the border plane by being a proper subset.
 //fprintf(stderr, "p tplacement: %p base %d/%d len %d/%d frontiery %d %d dir %d\n", t, begy, begx, leny, lenx, frontiertop, frontierbottom, direction);
-  ncplane* fp = ncplane_new(nr->p, leny, lenx, begy, begx, NULL, "tab");
-  if((t->p = fp) == NULL){
+  if((t->p = ncplane_new(nr->p, leny, lenx, begy, begx, NULL, "tab")) == NULL){
 //fprintf(stderr, "failure creating border plane %d %d %d %d\n", leny, lenx, begy, begx);
     return -1;
   }
   // we allow the callback to use a bound plane that lives above our border
   // plane, thus preventing the callback from spilling over the tablet border.
+  // we always show at least one of the top+bottom borders, and two if possible.
+  // cby/cbx are relative to the border plane.
   int cby = 0, cbx = 0, cbleny = leny, cblenx = lenx;
-  cbleny -= !(nr->ropts.tabletmask & NCBOXMASK_BOTTOM);
-  if(!(nr->ropts.tabletmask & NCBOXMASK_TOP)){
-    --cbleny;
-    ++cby;
+  if(direction == DIRECTION_UP){
+    cbleny -= !(nr->ropts.tabletmask & NCBOXMASK_BOTTOM);
+  }else{
+    if(!(nr->ropts.tabletmask & NCBOXMASK_TOP)){
+      --cbleny;
+      ++cby;
+    }
   }
   cblenx -= !(nr->ropts.tabletmask & NCBOXMASK_RIGHT);
   if(!(nr->ropts.tabletmask & NCBOXMASK_LEFT)){
@@ -323,18 +330,18 @@ ncreel_draw_tablet(const ncreel* nr, nctablet* t, int frontiertop,
       // Move it back to the frontier, or the nearest line above if it has grown.
       if(nr->tablets == t){
         if(leny - frontiertop + 1 < ll){
-          ncplane_yx(fp, &frontiertop, NULL);
+          ncplane_yx(t->p, &frontiertop, NULL);
           frontiertop += (leny - ll);
         }
-        ncplane_move_yx(fp, frontiertop, begx);
+        ncplane_move_yx(t->p, frontiertop, begx);
 //fprintf(stderr, "moved to frontiertop %d\n", frontiertop);
       }else if(direction == DIRECTION_UP){
-        ncplane_move_yx(fp, begy + diff, begx);
+        ncplane_move_yx(t->p, begy + diff, begx);
 //fprintf(stderr, "MOVEDOWN from %d to %d\n", begy, begy + diff);
       }
     }
   }
-  draw_borders(fp, nr->ropts.tabletmask,
+  draw_borders(t->p, nr->ropts.tabletmask,
                nr->tablets == t ? nr->ropts.focusedchan : nr->ropts.tabletchan,
                direction);
   return 0;
