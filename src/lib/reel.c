@@ -113,6 +113,10 @@ typedef enum {
 //    * if focw == backstop, we're done
 //    * draw through edge
 
+// draw borders around the entirety of the plane (either the reel's own plane,
+// or a borderplane), according to the supplied mask and channel. if the plane
+// is only a single line, and both top and bottom borders are requested (i.e.
+// not masked out), select the border to draw based off direction.
 static int
 draw_borders(ncplane* w, unsigned mask, uint64_t channel, direction_e direction){
   int lenx, leny;
@@ -128,14 +132,16 @@ draw_borders(ncplane* w, unsigned mask, uint64_t channel, direction_e direction)
   }
 //fprintf(stderr, "drawing borders %p ->%d/%d, mask: %04x\n", w, maxx, maxy, mask);
   // lenx is the number of columns we have, but drop 2 due to corners. we thus
-  // want lenx horizontal lines.
-  if(maxy || direction == DIRECTION_DOWN){
+  // want lenx - 2 horizontal lines in a top or bottom border.
+  int y = 0;
+  if(y < maxy || direction == DIRECTION_DOWN || (mask & NCBOXMASK_BOTTOM)){
     if(!(mask & NCBOXMASK_TOP)){
       ncplane_home(w);
       ncplane_putc(w, &ul);
       ncplane_hline(w, &hl, lenx - 2);
       ncplane_putc(w, &ur);
-    }else{
+      ++y;
+    }/*else{
       if(!(mask & NCBOXMASK_LEFT)){
         ncplane_home(w);
         ncplane_putc(w, &ul);
@@ -144,10 +150,13 @@ draw_borders(ncplane* w, unsigned mask, uint64_t channel, direction_e direction)
         ncplane_cursor_move_yx(w, 0, lenx - 1);
         ncplane_putc(w, &ur);
       }
-    }
+    }*/
   }
-  int y;
-  for(y = 1 ; y < maxy ; ++y){
+  // draw the vertical sides, assuming they're not masked out. start wherever
+  // we're left following the previous stanza, end based on .
+  const bool candrawbottom = y < maxy || direction == DIRECTION_UP || (mask & NCBOXMASK_TOP);
+  const int maxhorizy = maxy - (candrawbottom && !(mask & NCBOXMASK_BOTTOM));
+  while(y <= maxhorizy){
     if(!(mask & NCBOXMASK_LEFT)){
       ret |= ncplane_cursor_move_yx(w, y, 0);
       ncplane_putc(w, &vl);
@@ -156,14 +165,15 @@ draw_borders(ncplane* w, unsigned mask, uint64_t channel, direction_e direction)
       ret |= ncplane_cursor_move_yx(w, y, maxx);
       ncplane_putc(w, &vl);
     }
+    ++y;
   }
-  if(maxy || direction == DIRECTION_UP){
+  if(candrawbottom){
     if(!(mask & NCBOXMASK_BOTTOM)){
       ret |= ncplane_cursor_move_yx(w, maxy, 0);
       ncplane_putc(w, &ll);
       ncplane_hline(w, &hl, lenx - 2);
       ncplane_putc(w, &lr);
-    }else{
+    }/*else{
       if(!(mask & NCBOXMASK_LEFT)){
         if(ncplane_cursor_move_yx(w, maxy, 0) || ncplane_putc(w, &ll) < 0){
           ret = -1;
@@ -174,7 +184,7 @@ draw_borders(ncplane* w, unsigned mask, uint64_t channel, direction_e direction)
           ret = -1;
         }
       }
-    }
+    }*/
   }
   cell_release(w, &ul); cell_release(w, &ur); cell_release(w, &hl);
   cell_release(w, &ll); cell_release(w, &lr); cell_release(w, &vl);
