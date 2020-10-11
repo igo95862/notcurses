@@ -141,16 +141,7 @@ draw_borders(ncplane* w, unsigned mask, uint64_t channel, direction_e direction)
       ncplane_hline(w, &hl, lenx - 2);
       ncplane_putc(w, &ur);
       ++y;
-    }/*else{
-      if(!(mask & NCBOXMASK_LEFT)){
-        ncplane_home(w);
-        ncplane_putc(w, &ul);
-      }
-      if(!(mask & NCBOXMASK_RIGHT)){
-        ncplane_cursor_move_yx(w, 0, lenx - 1);
-        ncplane_putc(w, &ur);
-      }
-    }*/
+    }
   }
   // draw the vertical sides, assuming they're not masked out. start wherever
   // we're left following the previous stanza, end based on .
@@ -173,18 +164,7 @@ draw_borders(ncplane* w, unsigned mask, uint64_t channel, direction_e direction)
       ncplane_putc(w, &ll);
       ncplane_hline(w, &hl, lenx - 2);
       ncplane_putc(w, &lr);
-    }/*else{
-      if(!(mask & NCBOXMASK_LEFT)){
-        if(ncplane_cursor_move_yx(w, maxy, 0) || ncplane_putc(w, &ll) < 0){
-          ret = -1;
-        }
-      }
-      if(!(mask & NCBOXMASK_RIGHT)){
-        if(ncplane_cursor_move_yx(w, maxy, maxx) || ncplane_putc(w, &lr) < 0){
-          ret = -1;
-        }
-      }
-    }*/
+    }
   }
   cell_release(w, &ul); cell_release(w, &ur); cell_release(w, &hl);
   cell_release(w, &ll); cell_release(w, &lr); cell_release(w, &vl);
@@ -294,13 +274,12 @@ ncreel_draw_tablet(const ncreel* nr, nctablet* t, int frontiertop,
   // we always show at least one of the top+bottom borders, and two if possible.
   // cby/cbx are relative to the border plane.
   int cby = 0, cbx = 0, cbleny = leny, cblenx = lenx;
-  if(direction == DIRECTION_UP){
-    cbleny -= !(nr->ropts.tabletmask & NCBOXMASK_BOTTOM);
-  }else{
-    if(!(nr->ropts.tabletmask & NCBOXMASK_TOP)){
-      --cbleny;
-      ++cby;
-    }
+  int borderweight = !(nr->ropts.tabletmask & NCBOXMASK_BOTTOM) +
+                     !(nr->ropts.tabletmask & NCBOXMASK_TOP);
+  cbleny -= !(nr->ropts.tabletmask & NCBOXMASK_BOTTOM);
+  if(!(nr->ropts.tabletmask & NCBOXMASK_TOP)){
+    --cbleny;
+    ++cby;
   }
   cblenx -= !(nr->ropts.tabletmask & NCBOXMASK_RIGHT);
   if(!(nr->ropts.tabletmask & NCBOXMASK_LEFT)){
@@ -326,14 +305,14 @@ ncreel_draw_tablet(const ncreel* nr, nctablet* t, int frontiertop,
     }
     if(ll != cbleny){
       int diff = cbleny - ll;
-//fprintf(stderr, "resizing data plane %d->%d\n", cbleny, leny - diff);
+//fprintf(stderr, "resizing data plane %d->%d\n", cbleny, ll);
       if(ll){
         ncplane_resize_simple(t->cbp, ll, cblenx);
       }else{
         ncplane_genocide(t->cbp);
         t->cbp = NULL;
       }
-      ncplane_resize_simple(t->p, leny - diff, lenx);
+      ncplane_resize_simple(t->p, ll + borderweight, lenx);
       // We needn't move the resized plane if drawing down, or the focused plane.
       // The focused tablet will have been resized properly above, but it might
       // be out of position (the focused tablet ought move as little as possible). 
@@ -693,7 +672,7 @@ int ncreel_redraw(ncreel* nr){
     int frontiertop, frontierbottom;
     ncplane_yx(nr->tablets->p, &frontiertop, NULL);
     frontierbottom = frontiertop + ncplane_dim_y(nr->tablets->p) + 1;
-    frontiertop -= 2;
+    frontiertop -= 1;
     if(nr->direction == LASTDIRECTION_DOWN){
       otherend = draw_previous_tablets(nr, otherend, &frontiertop, frontierbottom);
       if(otherend == NULL){
