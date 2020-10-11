@@ -326,6 +326,8 @@ TEST_CASE("Reels") {
       int y;
       ncplane_yx(ncplane_parent(nctablet_plane(tabs[n])), &y, nullptr);
       CHECK(y == expectedy);
+      ncplane_yx(nctablet_plane(tabs[n]), &y, nullptr);
+      CHECK(y == 1);
       expectedy += 7;
     }
     ncreel_next(nr);
@@ -374,6 +376,8 @@ TEST_CASE("Reels") {
       int y;
       ncplane_yx(ncplane_parent(nctablet_plane(tabs[n])), &y, nullptr);
       CHECK(y == expectedy);
+      ncplane_yx(nctablet_plane(tabs[n]), &y, nullptr);
+      CHECK(y == 1);
       expectedy += 7;
     }
     ncreel_destroy(nr);
