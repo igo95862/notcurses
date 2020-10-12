@@ -1,0 +1,19 @@
+# run ala "c-for-go -ccincl notcurses.yml"
+---
+GENERATOR:
+  PackageName: notcurses
+  PackageDescription: "Go bindings for Notcurses"
+  PackageLicense: "Apache-2.0"
+  Includes:
+    - notcurses/notcurses.h
+
+PARSER:
+  # use -cincl when running c-for-go
+  IncludePaths: ["/usr/include"]
+  SourcesPaths: ["notcurses/notcurses.h"]
+
+TRANSLATOR:
+  Rules:
+    global:
+      - {action: accept}
+      - {load: snakecase}
