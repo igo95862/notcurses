@@ -145,7 +145,7 @@ draw_borders(ncplane* w, unsigned mask, uint64_t channel, direction_e direction)
   }
   // draw the vertical sides, assuming they're not masked out. start wherever
   // we're left following the previous stanza, end based on .
-  const bool candrawbottom = y < maxy || direction == DIRECTION_UP || (mask & NCBOXMASK_TOP);
+  const bool candrawbottom = y <= maxy || direction == DIRECTION_UP || (mask & NCBOXMASK_TOP);
   const int maxhorizy = maxy - (candrawbottom && !(mask & NCBOXMASK_BOTTOM));
   while(y <= maxhorizy){
     if(!(mask & NCBOXMASK_LEFT)){
@@ -160,7 +160,7 @@ draw_borders(ncplane* w, unsigned mask, uint64_t channel, direction_e direction)
   }
   if(candrawbottom){
     if(!(mask & NCBOXMASK_BOTTOM)){
-      ret |= ncplane_cursor_move_yx(w, maxy, 0);
+      ret |= ncplane_cursor_move_yx(w, y, 0);
       ncplane_putc(w, &ll);
       ncplane_hline(w, &hl, lenx - 2);
       ncplane_putc(w, &lr);
@@ -487,8 +487,10 @@ trim_reel_overhang(ncreel* r, nctablet* top, nctablet* bottom){
   return 0;
 }
 
+// pull all the tablets up, starting at the active tablet and moving up. this
+// is called when the bottommost tablet is focused, and crosses the bottom.
 static int
-tighten_reel_down(ncreel* r, int ybot){
+tighten_reel_up(ncreel* r, int ybot){
   nctablet* cur = r->tablets;
   while(cur){
     if(cur->p == NULL){
@@ -497,10 +499,11 @@ tighten_reel_down(ncreel* r, int ybot){
     int cury, curx, ylen;
     ncplane_yx(cur->p, &cury, &curx);
     ncplane_dim_yx(cur->p, &ylen, NULL);
-    if(cury <= ybot - ylen - 1){
+fprintf(stderr, "cury: %d ybot: %d ylen: %d ybot - ylen: %d\n", cury, ybot, ylen, ybot - ylen);
+    if(cury <= ybot - ylen){
       break;
     }
-//fprintf(stderr, "tightening %p down to %d from %d\n", cur, ybot - ylen, cury);
+fprintf(stderr, "tightening %p down to %d from %d\n", cur, ybot - ylen, cury);
     cury = ybot - ylen;
     ncplane_move_yx(cur->p, cury, curx);
     ybot = cury - 1;
@@ -548,14 +551,14 @@ tighten_reel(ncreel* r){
     ncplane_yx(cur->p, &cury, &curx);
     if(cury != expected){
       if(ncplane_move_yx(cur->p, expected, curx)){
-//fprintf(stderr, "tightened %p up to %d\n", cur, expected);
+fprintf(stderr, "tightened %p up to %d\n", cur, expected);
         return -1;
       }
     }
     int ylen;
     ncplane_dim_yx(cur->p, &ylen, NULL);
     expected += ylen + 1;
-//fprintf(stderr, "bottom (%p) gets %p\n", bottom, cur);
+fprintf(stderr, "bottom (%p) gets %p\n", bottom, cur);
     bottom = cur;
     cur = cur->next;
     if(cur == top){
@@ -573,7 +576,7 @@ tighten_reel(ncreel* r){
     // FIXME want to tighten down whenever we're at the bottom, and the reel
     // is full, not just in this case (this can leave a gap of more than 1 row)
     if(yoff + ylen + 1 >= ybot){
-      if(tighten_reel_down(r, ybot)){
+      if(tighten_reel_up(r, ybot)){
         return -1;
       }
     }
