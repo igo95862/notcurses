@@ -93,6 +93,7 @@ jobs:
             mingw-w64-x86_64-ncurses
             mingw-w64-x86_64-rust
             mingw-w64-x86_64-toolchain
+            msys2-runtime-devel
 
       - uses: actions/checkout@v2
 
